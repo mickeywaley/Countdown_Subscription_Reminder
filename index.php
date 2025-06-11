@@ -22,7 +22,8 @@ function getAllUsers() {
         $admin = [
             'username' => 'admin',
             'password' => password_hash('admin123', PASSWORD_DEFAULT),
-            'role' => 'admin'
+            'role' => 'admin',
+            'email' => 'admin@example.com'
         ];
         saveUser($admin);
         return [$admin];
@@ -36,6 +37,10 @@ function getAllUsers() {
         if (!empty($line)) {
             $user = json_decode($line, true);
             if ($user) {
+                // 确保旧用户数据有email字段
+                if (!isset($user['email'])) {
+                    $user['email'] = '';
+                }
                 $users[] = $user;
             }
         }
@@ -98,8 +103,9 @@ if (isset($_POST['add_user']) && isAdmin()) {
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
     $role = isset($_POST['is_admin']) ? 'admin' : 'user';
+    $email = trim($_POST['email']);
     
-    if (!empty($username) && !empty($password)) {
+    if (!empty($username) && !empty($password) && !empty($email)) {
         // 检查用户名是否已存在
         $users = getAllUsers();
         foreach ($users as $user) {
@@ -112,7 +118,8 @@ if (isset($_POST['add_user']) && isAdmin()) {
         $newUser = [
             'username' => $username,
             'password' => password_hash($password, PASSWORD_DEFAULT),
-            'role' => $role
+            'role' => $role,
+            'email' => $email
         ];
         
         saveUser($newUser);
@@ -137,7 +144,7 @@ if (isset($_POST['add']) && isLoggedIn()) {
             'name' => $name,
             'expiry_date' => $expiry_date,
             'color' => $color,
-            'category' => $category // 新增分类字段
+            'category' => $category
         ];
         
         saveSubscription($subscription);
@@ -239,7 +246,7 @@ function getAllSubscriptions() {
         if (!empty($line)) {
             $subscription = json_decode($line, true);
             if ($subscription) {
-                // 确保旧数据也有ID、用户和分类字段
+                // 确保旧数据也有所有字段
                 if (!isset($subscription['id'])) {
                     $subscription['id'] = uniqid();
                 }
@@ -336,12 +343,6 @@ if (isAdmin() && $user_filter !== '全部') {
         return $subscription['user'] === $user_filter;
     });
     $subscriptions = array_values($subscriptions); // 重新索引数组
-} elseif (!isAdmin()) {
-    // 普通用户只能看到自己的订阅
-    $subscriptions = array_filter($subscriptions, function($subscription) {
-        return $subscription['user'] === $_SESSION['user']['username'];
-    });
-    $subscriptions = array_values($subscriptions); // 重新索引数组
 }
 
 // 排序
@@ -367,7 +368,7 @@ if ($category !== '全部') {
 // 获取当前编辑的订阅
 $edit_id = isset($_GET['edit']) ? $_GET['edit'] : null;
 $edit_subscription = null;
-if ($edit_id !== null) {
+if ($edit_id !== null && isLoggedIn()) {
     // 从所有订阅中查找，而不仅是过滤后的订阅
     foreach ($all_subscriptions as $subscription) {
         if ($subscription['id'] === $edit_id) {
@@ -460,6 +461,10 @@ if (isAdmin()) {
             color: red;
             margin: 10px 0;
         }
+        .success {
+            color: green;
+            margin: 10px 0;
+        }
         .admin-controls {
             margin: 20px 0;
         }
@@ -469,12 +474,12 @@ if (isAdmin()) {
             gap: 10px;
             margin-bottom: 20px;
         }
-        .add-form input, .add-form button, .add-form select {
+        .add-form input, .add-form button, .add-form select, .add-form label {
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 3px;
         }
-        .add-form input[type="text"], .add-form select {
+        .add-form input[type="text"], .add-form select, .add-form input[type="date"], .add-form input[type="color"] {
             flex: 1;
         }
         .add-form button {
@@ -610,436 +615,388 @@ if (isAdmin()) {
             text-decoration: none;
             cursor: pointer;
         }
-        .user-management {
+        .login-link {
+            text-align: center;
             margin: 20px 0;
-            padding: 20px;
-            background-color: #f9f9f9;
-            border-radius: 5px;
         }
-        .user-list {
-            list-style-type: none;
-            padding: 0;
-            margin: 10px 0 0;
+        .login-link a {
+            color: #2196F3;
+            text-decoration: none;
         }
-        .user-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        .user-role {
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-        .admin-role {
-            background-color: #e3f2fd;
-            color: #1976d2;
-        }
-        .user-role {
-            background-color: #e8f5e9;
-            color: #2e7d32;
+        .login-link a:hover {
+            text-decoration: underline;
         }
         .stats-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 20px;
         }
         .stat-card {
             flex: 1;
-            min-width: 120px;
+            min-width: 150px;
             padding: 15px;
             border-radius: 5px;
             text-align: center;
             color: white;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .stat-card h3 {
-            margin: 0 0 5px;
-            font-size: 16px;
-        }
-        .stat-card p {
-            margin: 0;
+        .stat-total { background-color: #2196F3; }
+        .stat-expired { background-color: #f44336; }
+        .stat-critical { background-color: #FF9800; }
+        .stat-warning { background-color: #FFEB3B; color: #333; }
+        .stat-normal { background-color: #4CAF50; }
+        .stat-value {
             font-size: 24px;
             font-weight: bold;
         }
-        .total-card {
-            background-color: #2196F3;
+        .stat-label {
+            font-size: 14px;
         }
-        .expired-card {
-            background-color: #F44336;
-        }
-        .critical-card {
-            background-color: #FF9800;
-        }
-        .warning-card {
-            background-color: #FFEB3B;
-            color: #333;
-        }
-        .normal-card {
-            background-color: #4CAF50;
-        }
-        .user-section {
-            margin-bottom: 30px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        .user-header {
-            padding: 15px;
-            background-color: #f5f5f5;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .user-subscriptions {
-            padding: 0;
-        }
-        .add-user-form {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        .add-user-form input, .add-user-form button {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-        }
-        .add-user-form input[type="text"], .add-user-form input[type="password"] {
-            flex: 1;
-        }
-        .add-user-form button {
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-        }
-        .btn-primary {
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .btn-primary:hover {
-            background-color: #1976D2;
-        }
-        .btn-secondary {
-            background-color: #607D8B;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .btn-secondary:hover {
-            background-color: #455A64;
-        }
-        .page-header {
+        .user-controls {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
-        .welcome-message {
-            font-size: 18px;
-            color: #666;
-        }
-        @media (max-width: 600px) {
-            .add-form, .add-user-form, .filter-sort {
-                flex-direction: column;
+        @media (max-width: 768px) {
+            .add-form input[type="text"], .add-form select, .add-form input[type="date"], .add-form input[type="color"] {
+                flex-basis: 100%;
             }
             .subscription-item {
                 flex-direction: column;
                 align-items: flex-start;
-                padding: 10px;
             }
-            .subscription-name {
-                margin-bottom: 5px;
-            }
-            .filter-sort {
-                align-items: flex-start;
-            }
-            .user-item {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .user-role {
-                margin-top: 5px;
-            }
-            .stat-card {
-                min-width: 100%;
-            }
-            .user-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .user-actions {
+            .subscription-actions {
                 margin-top: 10px;
+            }
+            .stats-container {
+                flex-direction: column;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="page-header">
-            <h1>会员到期提醒系统</h1>
-            <?php if (isLoggedIn()): ?>
-            <div class="welcome-message">
-                欢迎, <?php echo htmlspecialchars($_SESSION['user']['username']); ?> 
-                <?php if (isAdmin()): ?>
-                <span class="user-role admin-role">管理员</span>
-                <?php else: ?>
-                <span class="user-role user-role">普通用户</span>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-        </div>
+        <h1>会员到期提醒系统</h1>
         
         <?php if (!isLoggedIn()): ?>
-            <div class="login-form">
-                <h2>用户登录</h2>
-                <?php if (isset($loginError)): ?>
-                    <div class="error"><?php echo $loginError; ?></div>
-                <?php endif; ?>
-                <form method="post">
-                    <input type="text" name="username" placeholder="用户名" required>
-                    <input type="password" name="password" placeholder="密码" required>
-                    <button type="submit" name="login" class="btn-primary">登录</button>
-                </form>
+            <div class="login-link">
+                <a href="#login-modal" onclick="document.getElementById('login-modal').style.display='block'">登录</a> 以管理订阅
             </div>
         <?php else: ?>
-            <div class="stats-container">
-                <div class="stat-card total-card">
-                    <h3>总计</h3>
-                    <p><?php echo $stats['total']; ?></p>
+            <div class="user-controls">
+                <div>
+                    <?php if (isAdmin()): ?>
+                        <a href="#add-user-modal" onclick="document.getElementById('add-user-modal').style.display='block'">添加用户</a>
+                    <?php endif; ?>
+                    <?php if (isAdmin()): ?>
+                        <a href="#admin-panel" onclick="document.getElementById('admin-panel').style.display='block'">管理面板</a>
+                    <?php endif; ?>
                 </div>
-                <div class="stat-card expired-card">
-                    <h3>已过期</h3>
-                    <p><?php echo $stats['expired']; ?></p>
-                </div>
-                <div class="stat-card critical-card">
-                    <h3>紧急</h3>
-                    <p><?php echo $stats['critical']; ?></p>
-                </div>
-                <div class="stat-card warning-card">
-                    <h3>警告</h3>
-                    <p><?php echo $stats['warning']; ?></p>
-                </div>
-                <div class="stat-card normal-card">
-                    <h3>正常</h3>
-                    <p><?php echo $stats['normal']; ?></p>
-                </div>
+                <a href="?logout=1" class="logout-btn">退出登录</a>
             </div>
+        <?php endif; ?>
+        
+        <!-- 统计卡片 -->
+        <div class="stats-container">
+            <div class="stat-card stat-total">
+                <div class="stat-value"><?php echo $stats['total']; ?></div>
+                <div class="stat-label">总订阅数</div>
+            </div>
+            <div class="stat-card stat-expired">
+                <div class="stat-value"><?php echo $stats['expired']; ?></div>
+                <div class="stat-label">已过期</div>
+            </div>
+            <div class="stat-card stat-critical">
+                <div class="stat-value"><?php echo $stats['critical']; ?></div>
+                <div class="stat-label">即将到期</div>
+            </div>
+            <div class="stat-card stat-warning">
+                <div class="stat-value"><?php echo $stats['warning']; ?></div>
+                <div class="stat-label">近期到期</div>
+            </div>
+            <div class="stat-card stat-normal">
+                <div class="stat-value"><?php echo $stats['normal']; ?></div>
+                <div class="stat-label">正常</div>
+            </div>
+        </div>
+        
+        <!-- 过滤和排序 -->
+        <div class="filter-sort">
+            <label>分类:</label>
+            <select id="category-filter" onchange="filterSubscriptions()">
+                <?php foreach (getAllCategories($all_subscriptions) as $cat): ?>
+                    <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo ($category === $cat) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($cat); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
             
             <?php if (isAdmin()): ?>
-            <div class="user-management">
-                <h2>用户管理</h2>
-                <div class="add-user-form">
-                    <input type="text" name="username" placeholder="用户名" required>
-                    <input type="password" name="password" placeholder="密码" required>
-                    <label>
-                        <input type="checkbox" name="is_admin"> 管理员
-                    </label>
-                    <button type="submit" name="add_user" class="btn-primary">添加用户</button>
-                </div>
-                <?php if (isset($userError)): ?>
-                    <div class="error"><?php echo $userError; ?></div>
-                <?php endif; ?>
-                <h3>用户列表</h3>
-                <ul class="user-list">
-                    <?php foreach (getAllUsers() as $user): ?>
-                    <li class="user-item">
-                        <span><?php echo htmlspecialchars($user['username']); ?></span>
-                        <span class="<?php echo $user['role'] === 'admin' ? 'admin-role' : 'user-role'; ?>">
-                            <?php echo $user['role'] === 'admin' ? '管理员' : '普通用户'; ?>
-                        </span>
-                    </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <?php endif; ?>
-            
-            <div class="admin-controls">
-                <h2>添加新订阅</h2>
-                <form class="add-form" method="post">
-                    <input type="text" name="name" placeholder="订阅名称" required>
-                    <input type="date" name="expiry_date" required>
-                    <input type="color" name="color" value="#FF0000">
-                    <input type="text" name="category" placeholder="分类" value="未分类">
-                    <button type="submit" name="add" class="btn-primary">添加</button>
-                </form>
-                <button class="logout-btn" onclick="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?logout=1'">退出登录</button>
-            </div>
-            
-            <!-- 排序和过滤选项 -->
-            <div class="filter-sort">
-                <span>排序:</span>
-                <select id="sort-select" onchange="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?sort=' + this.value + '&category=<?php echo $category; ?><?php echo isAdmin() ? '&user=' . urlencode($user_filter) : ''; ?>'">
-                    <option value="asc" <?php echo ($sort === 'asc') ? 'selected' : ''; ?>>按剩余时间升序</option>
-                    <option value="desc" <?php echo ($sort === 'desc') ? 'selected' : ''; ?>>按剩余时间降序</option>
-                </select>
-                
-                <span>分类:</span>
-                <select id="category-select" onchange="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?sort=<?php echo $sort; ?>&category=' + encodeURIComponent(this.value) + '<?php echo isAdmin() ? '&user=' . urlencode($user_filter) : ''; ?>'">
-                    <?php foreach (getAllCategories($subscriptions) as $cat): ?>
-                        <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo ($category === $cat) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($cat); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                
-                <?php if (isAdmin()): ?>
-                <span>用户:</span>
-                <select id="user-select" onchange="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>&user=' + encodeURIComponent(this.value)">
-                    <?php foreach (getAllUserNames($subscriptions) as $user): ?>
+                <label>用户:</label>
+                <select id="user-filter" onchange="filterSubscriptions()">
+                    <?php foreach (getAllUserNames($all_subscriptions) as $user): ?>
                         <option value="<?php echo htmlspecialchars($user); ?>" <?php echo ($user_filter === $user) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($user); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <?php endif; ?>
-            </div>
+            <?php endif; ?>
             
-            <h2>订阅列表</h2>
-            
+            <label>排序:</label>
+            <select id="sort-order" onchange="filterSubscriptions()">
+                <option value="asc" <?php echo ($sort === 'asc') ? 'selected' : ''; ?>>到期日（早到晚）</option>
+                <option value="desc" <?php echo ($sort === 'desc') ? 'selected' : ''; ?>>到期日（晚到早）</option>
+            </select>
+        </div>
+        
+        <!-- 订阅列表 -->
+        <ul class="subscription-list">
             <?php if (empty($subscriptions)): ?>
-                <div class="container">
-                    <p style="text-align: center; color: #666; padding: 30px;">暂无订阅记录</p>
-                </div>
+                <li class="subscription-item">
+                    <div class="subscription-name">暂无订阅记录</div>
+                </li>
             <?php else: ?>
-                <?php if (isAdmin()): ?>
-                    <!-- 管理员视图：按用户分组 -->
-                    <?php foreach ($subscriptionsByUser as $username => $userSubscriptions): ?>
-                    <div class="user-section">
-                        <div class="user-header">
-                            <span><?php echo htmlspecialchars($username); ?> 的订阅</span>
-                            <div class="user-actions">
-                                <span class="user-role <?php echo $username === 'admin' ? 'admin-role' : 'user-role'; ?>">
-                                    <?php echo $username === 'admin' ? '管理员' : '普通用户'; ?>
-                                </span>
-                            </div>
+                <?php foreach ($subscriptions as $subscription): ?>
+                    <li class="subscription-item">
+                        <div>
+                            <span class="subscription-name" style="<?php echo getStatusStyle(calculateDaysLeft($subscription['expiry_date']), $subscription['color']); ?>">
+                                <?php echo htmlspecialchars($subscription['name']); ?>
+                            </span>
+                            <span class="category-tag"><?php echo htmlspecialchars($subscription['category']); ?></span>
+                            <?php if (isAdmin()): ?>
+                                <span class="user-tag"><?php echo htmlspecialchars($subscription['user']); ?></span>
+                            <?php endif; ?>
                         </div>
-                        <ul class="subscription-list user-subscriptions">
+                        <div>
+                            <span class="days-left" style="<?php echo getStatusStyle(calculateDaysLeft($subscription['expiry_date']), $subscription['color']); ?>">
+                                <?php 
+                                $days = calculateDaysLeft($subscription['expiry_date']);
+                                if ($days < 0) {
+                                    echo '已过期 ' . abs($days) . ' 天';
+                                } else {
+                                    echo '剩余 ' . $days . ' 天';
+                                }
+                                ?>
+                            </span>
+                            <span>（<?php echo htmlspecialchars($subscription['expiry_date']); ?>）</span>
+                            
+                            <?php if (isLoggedIn() && ($subscription['user'] === $_SESSION['user']['username'] || isAdmin())): ?>
+                                <div class="subscription-actions">
+                                    <button class="edit-btn" onclick="editSubscription('<?php echo $subscription['id']; ?>')">编辑</button>
+                                    <button class="delete-btn" onclick="if(confirm('确定要删除此订阅吗？')) window.location.href='?delete=<?php echo $subscription['id']; ?>'">删除</button>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </li>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </ul>
+        
+        <?php if (isLoggedIn()): ?>
+            <!-- 添加订阅表单 -->
+            <div class="add-form">
+                <input type="text" name="name" placeholder="订阅名称" required>
+                <input type="date" name="expiry_date" required>
+                <input type="text" name="category" placeholder="分类（可选）">
+                <input type="color" name="color" value="#FF0000">
+                <button type="button" onclick="addSubscription()">添加订阅</button>
+            </div>
+        <?php endif; ?>
+    </div>
+    
+    <!-- 登录模态框 -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('login-modal').style.display='none'">&times;</span>
+            <h2>登录</h2>
+            <?php if (isset($loginError)): ?>
+                <div class="error"><?php echo $loginError; ?></div>
+            <?php endif; ?>
+            <form method="post" class="login-form">
+                <input type="text" name="username" placeholder="用户名" required>
+                <input type="password" name="password" placeholder="密码" required>
+                <button type="submit" name="login">登录</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 添加用户模态框 -->
+    <div id="add-user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('add-user-modal').style.display='none'">&times;</span>
+            <h2>添加用户</h2>
+            <?php if (isset($userError)): ?>
+                <div class="error"><?php echo $userError; ?></div>
+            <?php endif; ?>
+            <form method="post">
+                <input type="text" name="username" placeholder="用户名" required>
+                <input type="password" name="password" placeholder="密码" required>
+                <input type="email" name="email" placeholder="邮箱" required>
+                <label>
+                    <input type="checkbox" name="is_admin"> 管理员
+                </label>
+                <button type="submit" name="add_user">添加</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 编辑订阅模态框 -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('edit-modal').style.display='none'">&times;</span>
+            <h2>编辑订阅</h2>
+            <form method="post">
+                <input type="hidden" name="edit_id" id="edit-id">
+                <input type="text" name="name" id="edit-name" placeholder="订阅名称" required>
+                <input type="date" name="expiry_date" id="edit-expiry-date" required>
+                <input type="text" name="category" id="edit-category" placeholder="分类（可选）">
+                <input type="color" name="color" id="edit-color">
+                <button type="submit" name="edit">保存</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 管理员面板模态框 -->
+    <div id="admin-panel" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('admin-panel').style.display='none'">&times;</span>
+            <h2>管理员面板</h2>
+            
+            <?php if (isAdmin()): ?>
+                <h3>用户列表</h3>
+                <ul>
+                    <?php foreach (getAllUsers() as $user): ?>
+                        <li>
+                            <?php echo htmlspecialchars($user['username']); ?> 
+                            (<?php echo htmlspecialchars($user['email']); ?>)
+                            <?php echo ($user['role'] === 'admin') ? ' [管理员]' : ''; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                
+                <h3>按用户分组的订阅</h3>
+                <?php if (!empty($subscriptionsByUser)): ?>
+                    <?php foreach ($subscriptionsByUser as $user => $userSubscriptions): ?>
+                        <h4><?php echo htmlspecialchars($user); ?> (<?php echo count($userSubscriptions); ?>)</h4>
+                        <ul>
                             <?php foreach ($userSubscriptions as $subscription): ?>
-                                <li class="subscription-item">
-                                    <div>
-                                        <span class="subscription-name" style="<?php echo getStatusStyle(calculateDaysLeft($subscription['expiry_date']), $subscription['color']); ?>">
-                                            <?php echo htmlspecialchars($subscription['name']); ?>
-                                        </span>
-                                        <span class="category-tag"><?php echo htmlspecialchars($subscription['category']); ?></span>
-                                        <span>到期日: <?php echo $subscription['expiry_date']; ?></span>
-                                        <span class="days-left">
-                                            <?php 
-                                            $days_left = calculateDaysLeft($subscription['expiry_date']);
-                                            if ($days_left < 0) {
-                                                echo '已过期 ' . abs($days_left) . ' 天';
-                                            } else {
-                                                echo '剩余 ' . $days_left . ' 天';
-                                            }
-                                            ?>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <button class="edit-btn" onclick="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?edit=<?php echo $subscription['id']; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>&user=<?php echo urlencode($user_filter); ?>'">编辑</button>
-                                        <button class="delete-btn" onclick="if(confirm('确定要删除此订阅吗？')) window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?delete=<?php echo $subscription['id']; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>&user=<?php echo urlencode($user_filter); ?>'">删除</button>
-                                    </div>
+                                <li>
+                                    <span style="<?php echo getStatusStyle(calculateDaysLeft($subscription['expiry_date']), $subscription['color']); ?>">
+                                        <?php echo htmlspecialchars($subscription['name']); ?>
+                                    </span>
+                                    (<?php echo htmlspecialchars($subscription['expiry_date']); ?>)
                                 </li>
                             <?php endforeach; ?>
                         </ul>
-                    </div>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <!-- 普通用户视图 -->
-                    <ul class="subscription-list">
-                        <?php foreach ($subscriptions as $subscription): ?>
-                            <li class="subscription-item">
-                                <div>
-                                    <span class="subscription-name" style="<?php echo getStatusStyle(calculateDaysLeft($subscription['expiry_date']), $subscription['color']); ?>">
-                                        <?php echo htmlspecialchars($subscription['name']); ?>
-                                    </span>
-                                    <span class="category-tag"><?php echo htmlspecialchars($subscription['category']); ?></span>
-                                    <span>到期日: <?php echo $subscription['expiry_date']; ?></span>
-                                    <span class="days-left">
-                                        <?php 
-                                        $days_left = calculateDaysLeft($subscription['expiry_date']);
-                                        if ($days_left < 0) {
-                                            echo '已过期 ' . abs($days_left) . ' 天';
-                                        } else {
-                                            echo '剩余 ' . $days_left . ' 天';
-                                        }
-                                        ?>
-                                    </span>
-                                </div>
-                                <div>
-                                    <button class="edit-btn" onclick="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?edit=<?php echo $subscription['id']; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">编辑</button>
-                                    <button class="delete-btn" onclick="if(confirm('确定要删除此订阅吗？')) window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?delete=<?php echo $subscription['id']; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">删除</button>
-                                </div>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
+                    <p>暂无订阅记录</p>
                 <?php endif; ?>
             <?php endif; ?>
+        </div>
+    </div>
+    
+    <script>
+        // 过滤和排序订阅
+        function filterSubscriptions() {
+            const category = document.getElementById('category-filter').value;
+            const user = document.getElementById('user-filter') ? document.getElementById('user-filter').value : '全部';
+            const sort = document.getElementById('sort-order').value;
             
-            <!-- 编辑模态框 -->
-            <?php if ($edit_subscription): ?>
-            <div id="edit-modal" class="modal">
-                <div class="modal-content">
-                    <span class="close" onclick="document.getElementById('edit-modal').style.display='none'">&times;</span>
-                    <h2>编辑订阅</h2>
-                    <form method="post">
-                        <input type="hidden" name="edit_id" value="<?php echo $edit_subscription['id']; ?>">
-                        <div style="margin: 10px 0;">
-                            <label>名称:</label>
-                            <input type="text" name="name" value="<?php echo htmlspecialchars($edit_subscription['name']); ?>" required>
-                        </div>
-                        <div style="margin: 10px 0;">
-                            <label>到期日:</label>
-                            <input type="date" name="expiry_date" value="<?php echo $edit_subscription['expiry_date']; ?>" required>
-                        </div>
-                        <div style="margin: 10px 0;">
-                            <label>颜色:</label>
-                            <input type="color" name="color" value="<?php echo $edit_subscription['color']; ?>">
-                        </div>
-                        <div style="margin: 10px 0;">
-                            <label>分类:</label>
-                            <input type="text" name="category" value="<?php echo htmlspecialchars($edit_subscription['category']); ?>">
-                        </div>
-                        <div style="margin-top: 20px;">
-                            <button type="submit" name="edit" class="btn-primary">保存</button>
-                            <button type="button" onclick="document.getElementById('edit-modal').style.display='none'" class="btn-secondary">取消</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            let url = '?category=' + encodeURIComponent(category) + '&sort=' + encodeURIComponent(sort);
             
-            <script>
-                // 显示编辑模态框
-                document.getElementById('edit-modal').style.display = 'block';
-                
-                // 点击关闭按钮时隐藏模态框
-                document.querySelector('.close').onclick = function() {
-                    document.getElementById('edit-modal').style.display = 'none';
-                    window.history.replaceState({}, document.title, '<?php echo $_SERVER['PHP_SELF']; ?>?sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?><?php echo isAdmin() ? '&user=' . urlencode($user_filter) : ''; ?>');
-                }
-                
-                // 点击模态框外部时隐藏模态框
-                window.onclick = function(event) {
-                    var modal = document.getElementById('edit-modal');
-                    if (event.target == modal) {
-                        modal.style.display = 'none';
-                        window.history.replaceState({}, document.title, '<?php echo $_SERVER['PHP_SELF']; ?>?sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?><?php echo isAdmin() ? '&user=' . urlencode($user_filter) : ''; ?>');
+            if (document.getElementById('user-filter')) {
+                url += '&user=' + encodeURIComponent(user);
+            }
+            
+            window.location.href = url;
+        }
+        
+        // 添加订阅
+        function addSubscription() {
+            const name = document.querySelector('.add-form input[name="name"]').value;
+            const expiryDate = document.querySelector('.add-form input[name="expiry_date"]').value;
+            const category = document.querySelector('.add-form input[name="category"]').value;
+            const color = document.querySelector('.add-form input[name="color"]').value;
+            
+            // 验证
+            if (!name || !expiryDate) {
+                alert('请填写订阅名称和到期日期');
+                return;
+            }
+            
+            // 发送请求
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '<?php echo $_SERVER['PHP_SELF']; ?>', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 刷新页面
+                        location.reload();
+                    } else {
+                        alert('添加订阅失败');
                     }
                 }
-            </script>
-            <?php endif; ?>
-        <?php endif; ?>
-    </div>
+            };
+            xhr.send('add=1&name=' + encodeURIComponent(name) + 
+                    '&expiry_date=' + encodeURIComponent(expiryDate) + 
+                    '&category=' + encodeURIComponent(category) + 
+                    '&color=' + encodeURIComponent(color));
+        }
+        
+        // 编辑订阅
+        function editSubscription(id) {
+            // 查找订阅信息
+            <?php foreach ($all_subscriptions as $subscription): ?>
+                if ('<?php echo $subscription['id']; ?>' === id) {
+                    document.getElementById('edit-id').value = '<?php echo $subscription['id']; ?>';
+                    document.getElementById('edit-name').value = '<?php echo htmlspecialchars($subscription['name']); ?>';
+                    document.getElementById('edit-expiry-date').value = '<?php echo $subscription['expiry_date']; ?>';
+                    document.getElementById('edit-category').value = '<?php echo htmlspecialchars($subscription['category']); ?>';
+                    document.getElementById('edit-color').value = '<?php echo $subscription['color']; ?>';
+                    document.getElementById('edit-modal').style.display = 'block';
+                    return;
+                }
+            <?php endforeach; ?>
+            
+            alert('找不到订阅信息');
+        }
+        
+        // 关闭模态框
+        window.onclick = function(event) {
+            const modals = ['login-modal', 'add-user-modal', 'edit-modal', 'admin-panel'];
+            modals.forEach(function(modalId) {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+        
+        // 关闭按钮
+        document.querySelectorAll('.close').forEach(function(closeBtn) {
+            closeBtn.onclick = function() {
+                const modal = this.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        });
+        
+        // 自动关闭模态框
+        document.querySelectorAll('form').forEach(function(form) {
+            form.onsubmit = function() {
+                const modal = this.closest('.modal');
+                if (modal) {
+                    // 表单提交后关闭模态框
+                    setTimeout(function() {
+                        modal.style.display = 'none';
+                    }, 500);
+                }
+            }
+        });
+    </script>
 </body>
 </html>
