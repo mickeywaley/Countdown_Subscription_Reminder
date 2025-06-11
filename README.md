@@ -1,7 +1,16 @@
 # Countdown_Subscription_Reminder
 
 PHP8.0环境
+admin   admin123
 
+---------------------------------
+1.1.3
+界面美化
+
+加入了管理员可以添加新用户
+
+
+<img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.png" alt="Mobile wallpaper"   />
 
 ----------------------------------
 
@@ -9,7 +18,6 @@ PHP8.0环境
 
 界面截图
 
-<img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.png" alt="Mobile wallpaper"   />
 
 
 新增功能说明
