@@ -1,6 +1,6 @@
 # Countdown_Subscription_Reminder
 
-PHP8.0环境
+PHP 7.0环境
 admin   admin123
 
 ---------------------------------
