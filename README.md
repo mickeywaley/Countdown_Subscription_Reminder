@@ -4,6 +4,13 @@ PHP 7.0 环境 测试ok
 admin   admin123
 
 ---------------------------------
+1.1.4
+
+更新 无需登入就可以查看订阅提醒
+
+<img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.1.4.png" alt="Mobile wallpaper"   />
+
+---------------------------------
 1.1.3
 界面美化
 
