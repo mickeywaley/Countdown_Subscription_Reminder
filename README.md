@@ -1,6 +1,6 @@
 # Countdown_Subscription_Reminder
 
-PHP 7.0环境
+PHP 7.0 环境 测试ok
 admin   admin123
 
 ---------------------------------
@@ -17,7 +17,7 @@ admin   admin123
 ----------------------------------
 
 1.1.2
-
+php 8.0 环境测试OK
 简易版本，无需登入就可以查看
 
 <img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.1.2.png" alt="Mobile wallpaper"   />
@@ -67,7 +67,8 @@ admin   admin123
 
 
 ----------------------------------
-1.1.1
+1.1.1 
+php 8.0 环境 测试ok
 365倒计时订阅提醒
 
 系统功能说明
