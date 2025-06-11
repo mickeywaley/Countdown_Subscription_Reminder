@@ -42,6 +42,7 @@ if (isset($_POST['add']) && isLoggedIn()) {
     
     if (!empty($name) && !empty($expiry_date)) {
         $subscription = [
+            'id' => uniqid(), // 添加唯一ID
             'name' => $name,
             'expiry_date' => $expiry_date,
             'color' => $color,
@@ -64,6 +65,7 @@ if (isset($_POST['edit']) && isLoggedIn()) {
     
     if (!empty($name) && !empty($expiry_date)) {
         $subscription = [
+            'id' => $id, // 保持相同的ID
             'name' => $name,
             'expiry_date' => $expiry_date,
             'color' => $color,
@@ -94,14 +96,18 @@ function saveSubscription($subscription) {
 function updateSubscription($id, $subscription) {
     $subscriptions = getAllSubscriptions();
     
-    if (isset($subscriptions[$id])) {
-        $subscriptions[$id] = $subscription;
-        
-        // 重写文件
-        file_put_contents(DATA_FILE, '');
-        foreach ($subscriptions as $item) {
-            saveSubscription($item);
+    // 查找具有匹配ID的订阅
+    foreach ($subscriptions as $index => $item) {
+        if ($item['id'] === $id) {
+            $subscriptions[$index] = $subscription;
+            break;
         }
+    }
+    
+    // 重写文件
+    file_put_contents(DATA_FILE, '');
+    foreach ($subscriptions as $item) {
+        saveSubscription($item);
     }
 }
 
@@ -119,7 +125,10 @@ function getAllSubscriptions() {
         if (!empty($line)) {
             $subscription = json_decode($line, true);
             if ($subscription) {
-                // 确保旧数据也有分类字段
+                // 确保旧数据也有ID和分类字段
+                if (!isset($subscription['id'])) {
+                    $subscription['id'] = uniqid();
+                }
                 if (!isset($subscription['category'])) {
                     $subscription['category'] = '未分类';
                 }
@@ -135,15 +144,20 @@ function getAllSubscriptions() {
 function deleteSubscription($id) {
     $subscriptions = getAllSubscriptions();
     
-    if (isset($subscriptions[$id])) {
-        unset($subscriptions[$id]);
-        $subscriptions = array_values($subscriptions); // 重新索引数组
-        
-        // 重写文件
-        file_put_contents(DATA_FILE, '');
-        foreach ($subscriptions as $subscription) {
-            saveSubscription($subscription);
+    // 查找具有匹配ID的订阅并删除
+    foreach ($subscriptions as $index => $item) {
+        if ($item['id'] === $id) {
+            unset($subscriptions[$index]);
+            break;
         }
+    }
+    
+    $subscriptions = array_values($subscriptions); // 重新索引数组
+    
+    // 重写文件
+    file_put_contents(DATA_FILE, '');
+    foreach ($subscriptions as $subscription) {
+        saveSubscription($subscription);
     }
 }
 
@@ -152,7 +166,7 @@ function calculateDaysLeft($expiry_date) {
     $today = new DateTime();
     $expiry = new DateTime($expiry_date);
     $interval = $today->diff($expiry);
-    return $interval->days;
+    return $interval->invert ? -$interval->days : $interval->days;
 }
 
 // 获取到期状态样式
@@ -180,7 +194,8 @@ function getAllCategories($subscriptions) {
 }
 
 // 获取所有订阅
-$subscriptions = getAllSubscriptions();
+$all_subscriptions = getAllSubscriptions(); // 获取所有订阅，不应用过滤
+$subscriptions = $all_subscriptions; // 默认使用所有订阅
 
 // 处理排序和过滤
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'asc';
@@ -209,8 +224,14 @@ if ($category !== '全部') {
 // 获取当前编辑的订阅
 $edit_id = isset($_GET['edit']) ? $_GET['edit'] : null;
 $edit_subscription = null;
-if ($edit_id !== null && isset($subscriptions[$edit_id])) {
-    $edit_subscription = $subscriptions[$edit_id];
+if ($edit_id !== null) {
+    // 从所有订阅中查找，而不仅是过滤后的订阅
+    foreach ($all_subscriptions as $subscription) {
+        if ($subscription['id'] === $edit_id) {
+            $edit_subscription = $subscription;
+            break;
+        }
+    }
 }
 ?>
 
@@ -455,7 +476,7 @@ if ($edit_id !== null && isset($subscriptions[$edit_id])) {
                     <span>暂无订阅记录</span>
                 </li>
             <?php else: ?>
-                <?php foreach ($subscriptions as $index => $subscription): ?>
+                <?php foreach ($subscriptions as $subscription): ?>
                     <li class="subscription-item">
                         <div>
                             <span class="subscription-name" style="<?php echo getStatusStyle(calculateDaysLeft($subscription['expiry_date']), $subscription['color']); ?>">
@@ -476,8 +497,8 @@ if ($edit_id !== null && isset($subscriptions[$edit_id])) {
                         </div>
                         <?php if (isLoggedIn()): ?>
                             <div>
-                                <button class="edit-btn" onclick="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?edit=<?php echo $index; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">编辑</button>
-                                <button class="delete-btn" onclick="if(confirm('确定要删除此订阅吗？')) window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?delete=<?php echo $index; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">删除</button>
+                                <button class="edit-btn" onclick="window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?edit=<?php echo $subscription['id']; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">编辑</button>
+                                <button class="delete-btn" onclick="if(confirm('确定要删除此订阅吗？')) window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?delete=<?php echo $subscription['id']; ?>&sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">删除</button>
                             </div>
                         <?php endif; ?>
                     </li>
@@ -493,7 +514,7 @@ if ($edit_id !== null && isset($subscriptions[$edit_id])) {
             <span class="close" onclick="document.getElementById('editModal').style.display='none'; window.location.href='<?php echo $_SERVER['PHP_SELF']; ?>?sort=<?php echo $sort; ?>&category=<?php echo urlencode($category); ?>'">&times;</span>
             <h2>编辑订阅</h2>
             <form method="post">
-                <input type="hidden" name="edit_id" value="<?php echo $edit_id; ?>">
+                <input type="hidden" name="edit_id" value="<?php echo $edit_subscription['id']; ?>">
                 <div style="margin: 10px 0;">
                     <label>名称:</label>
                     <input type="text" name="name" value="<?php echo htmlspecialchars($edit_subscription['name']); ?>" required style="width: 100%; padding: 8px; margin-top: 5px;">
