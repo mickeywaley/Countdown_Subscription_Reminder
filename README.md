@@ -9,15 +9,18 @@ admin   admin123
 
 加入了管理员可以添加新用户
 
+需要登入才可以查看
 
-<img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.png" alt="Mobile wallpaper"   />
+
+<img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.1.3.png" alt="Mobile wallpaper"   />
 
 ----------------------------------
 
 1.1.2
 
-界面截图
+简易版本，无需登入就可以查看
 
+<img src="https://raw.githubusercontent.com/mickeywaley/Countdown_Subscription_Reminder/refs/heads/main/1.1.2.png" alt="Mobile wallpaper"   />
 
 
 新增功能说明
