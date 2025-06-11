@@ -1,5 +1,7 @@
 # Countdown_Subscription_Reminder
 
+PHP8.0环境
+
 365倒计时订阅提醒
 
 系统功能说明
